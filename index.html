@@ -25,6 +25,21 @@
   .tile b { display:block; font-size:18px; margin-bottom:4px; }
   .tile span { color:var(--muted); font-size:14px; }
   .tile[disabled] { opacity:.6; cursor:default; }
+  .day { font:600 15px/1.2 Georgia, "Times New Roman", serif; color:var(--brand); margin:18px 2px 8px; }
+  .ev { display:block; width:100%; text-align:left; background:none; border:0; border-top:1px solid var(--line); padding:12px 14px; font:inherit; color:inherit; cursor:pointer; min-height:56px; }
+  li.evrow { padding:0; display:block; border-top:0; }
+  .ev small { display:block; color:var(--muted); font-size:14px; overflow-wrap:anywhere; }
+  .ev .when { color:var(--accent); font-size:14px; font-weight:600; display:block; }
+  .rowbtns { display:flex; gap:8px; margin-bottom:6px; }
+  .rowbtns .btn { flex:1; }
+  .btn.soft { background:var(--card); color:var(--brand); border:1px solid var(--line); }
+  .evform { display:grid; gap:10px; }
+  .evform label { display:grid; gap:4px; color:var(--muted); font-size:14px; }
+  .evform .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .evform .check { display:flex; align-items:center; gap:10px; color:var(--ink); font-size:16px; min-height:44px; }
+  .evform .check input { width:24px; height:24px; min-height:0; accent-color:var(--brand); }
+  textarea { width:100%; font:inherit; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); min-height:84px; resize:vertical; }
+  input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; min-width:0; }
   form.add { display:grid; grid-template-columns:1fr 84px 56px; gap:8px; margin-bottom:14px; }
   input { width:100%; font:inherit; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); min-height:48px; }
   .btn { font:inherit; font-weight:600; border:0; border-radius:10px; background:var(--accent); color:#fff; padding:12px 16px; min-height:48px; cursor:pointer; }
@@ -67,6 +82,9 @@ const store = {
 let token = store.get('token');
 let items = [];
 let view = 'home';
+let events = [];
+let feed = '';
+let listKind = '';
 const main = document.getElementById('main');
 const backBtn = document.getElementById('back');
 const titleEl = document.getElementById('title');
@@ -138,9 +156,129 @@ function showHome() {
   const tile = (t, s, fn) => el('button', { className: 'tile', disabled: !fn, onclick: fn || null }, el('b', { textContent: t }), el('span', { textContent: s }));
   main.append(el('div', { className: 'tiles' },
     tile('Grocery list', 'Shared with everyone', showGrocery),
-    tile('Calendar', 'Coming next'),
-    tile('Appointments', 'Coming next'),
+    tile('Calendar', 'Everything coming up', () => showEvents('event')),
+    tile('Appointments', 'Doctors and visits', () => showEvents('appointment')),
     tile('Reminders', 'Coming next')));
+}
+
+const pad = n => String(n).padStart(2, '0');
+const dayKey = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const localDay = s => new Date(s + 'T12:00:00');
+const evDay = e => e.allDay ? e.start : dayKey(new Date(e.start));
+const fmtTime = s => new Date(s).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const fmtDay = s => {
+  const d = localDay(s), now = new Date();
+  const tom = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (s === dayKey(now)) return 'Today';
+  if (s === dayKey(tom)) return 'Tomorrow';
+  return d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+};
+
+async function loadEvents() {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const to = new Date(from.getTime() + 366 * 864e5);
+  const out = await api('cal.list', { from: from.toISOString(), to: to.toISOString() });
+  if (out.ok) { events = out.events; feed = out.feed || ''; }
+  return out;
+}
+
+async function showEvents(kind) {
+  listKind = kind;
+  setView('events', kind === 'appointment' ? 'Appointments' : 'Calendar');
+  const add = el('button', { className: 'btn', textContent: kind === 'appointment' ? 'Add appointment' : 'Add event' });
+  add.addEventListener('click', () => showEventForm(kind));
+  const btns = el('div', { className: 'rowbtns' }, add);
+  const box = el('div', { id: 'evlist' }, el('p', { className: 'note', textContent: 'Loading…' }));
+  main.append(btns, el('p', { className: 'err', id: 'gerr', role: 'alert' }), box);
+  renderEvents();
+  try {
+    const out = await loadEvents();
+    if (view !== 'events' || listKind !== kind) return;
+    if (!out.ok) { if (out.error !== 'auth') { box.replaceChildren(); showErr('Could not load the calendar (' + out.error + ').'); } return; }
+    if (feed && kind === 'event') btns.append(el('a', { className: 'btn soft', href: feed, textContent: 'Add to iPhone', style: 'text-align:center;text-decoration:none' }));
+    renderEvents(true);
+  } catch (e) { if (view === 'events') { box.replaceChildren(); showErr('Could not load the calendar. Check your signal and try again.'); } }
+}
+
+function renderEvents(loaded) {
+  const box = document.getElementById('evlist');
+  if (!box || (!loaded && !events.length)) return;
+  const shown = events.filter(e => listKind === 'event' || e.kind === 'appointment');
+  if (!shown.length) { box.replaceChildren(el('p', { className: 'note', textContent: listKind === 'appointment' ? 'No appointments coming up.' : 'Nothing on the calendar yet.' })); return; }
+  const nodes = []; let last = '', ul = null;
+  shown.forEach(e => {
+    const day = evDay(e);
+    if (day !== last) { last = day; ul = el('ul'); nodes.push(el('p', { className: 'day', textContent: fmtDay(day) }), ul); }
+    const b = el('button', { className: 'ev' });
+    b.append(el('span', { className: 'when', textContent: e.allDay ? 'All day' : fmtTime(e.start) + ' – ' + fmtTime(e.end) }), e.title || '(No title)');
+    const sub = e.kind === 'appointment' ? [e.reason, e.location].filter(Boolean).join(' · ') : e.location;
+    if (sub) b.append(el('small', { textContent: sub }));
+    b.addEventListener('click', () => showEventForm(e.kind === 'appointment' ? 'appointment' : 'event', e));
+    ul.append(el('li', { className: 'evrow' }, b));
+  });
+  box.replaceChildren(...nodes);
+}
+
+function showEventForm(kind, ev) {
+  const appt = kind === 'appointment';
+  setView('form', (ev ? 'Edit ' : 'New ') + (appt ? 'appointment' : 'event'));
+  const now = new Date();
+  const startD = ev && !ev.allDay ? new Date(ev.start) : null, endD = ev && !ev.allDay ? new Date(ev.end) : null;
+  const hhmm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+  const field = (label, control) => el('label', {}, label, control);
+  const text = (val, max) => el('input', { value: val || '', maxLength: max || 200 });
+  const title = text(ev && ev.title), person = text(ev && ev.person, 60), doctor = text(ev && ev.doctor, 120), reason = text(ev && ev.reason, 300), location_ = text(ev && ev.location, 300);
+  const notes = el('textarea', { value: (ev && ev.notes) || '', maxLength: 2000 });
+  const date = el('input', { type: 'date', required: true, value: ev ? evDay(ev) : dayKey(now) });
+  const start = el('input', { type: 'time', value: startD ? hhmm(startD) : '09:00' });
+  const end = el('input', { type: 'time', value: endD ? hhmm(endD) : '10:00' });
+  const allDay = el('input', { type: 'checkbox', checked: !!(ev && ev.allDay) });
+  const times = el('div', { className: 'two', hidden: allDay.checked }, field('Start', start), field('End', end));
+  allDay.addEventListener('change', () => { times.hidden = allDay.checked; });
+  start.addEventListener('change', () => { if (end.value <= start.value) { const [h, m] = start.value.split(':').map(Number); end.value = pad(Math.min(h + 1, 23)) + ':' + pad(m); } });
+  const err = el('p', { className: 'err', role: 'alert' });
+  const save = el('button', { className: 'btn', type: 'submit', textContent: 'Save' });
+  const form = el('form', { className: 'evform' });
+  if (appt) form.append(field('Who is it for', person), field('Doctor or office', doctor), field('Reason for the visit', reason));
+  else form.append(field('What', title));
+  form.append(field('Date', date));
+  if (!appt) form.append(el('label', { className: 'check' }, allDay, 'All day'));
+  form.append(times, field('Location', location_), field('Notes', notes), err, save);
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    err.textContent = '';
+    if (appt ? !(person.value.trim() || doctor.value.trim()) : !title.value.trim()) { err.textContent = appt ? 'Add who it is for or the doctor.' : 'Add a name for the event.'; return; }
+    const isAll = !appt && allDay.checked;
+    const s = new Date(date.value + 'T' + start.value), en = new Date(date.value + 'T' + end.value);
+    if (!date.value || (!isAll && !(en > s))) { err.textContent = 'Check the date and times. The end has to be after the start.'; return; }
+    save.disabled = true; save.textContent = 'Saving…';
+    const body = { id: ev ? ev.id : '', kind, title: title.value, person: person.value, doctor: doctor.value, reason: reason.value, location: location_.value, notes: notes.value, allDay: isAll, date: date.value, start: isAll ? '' : s.toISOString(), end: isAll ? '' : en.toISOString() };
+    try {
+      const out = await api('cal.save', body);
+      if (out.ok) { showEvents(listKind || kind); return; }
+      if (out.error === 'auth') return;
+      err.textContent = 'That did not save (' + out.error + '). Try again.';
+    } catch (x) { err.textContent = 'That did not save. Check your signal and try again.'; }
+    save.disabled = false; save.textContent = 'Save';
+  });
+  main.append(form);
+  if (ev) {
+    const del = el('button', { className: 'btn quiet', textContent: appt ? 'Delete appointment' : 'Delete event' });
+    let armed = false;
+    del.addEventListener('click', async () => {
+      if (!armed) { armed = true; del.textContent = 'Tap again to delete'; return; }
+      del.disabled = true; del.textContent = 'Deleting…';
+      try {
+        const out = await api('cal.delete', { id: ev.id });
+        if (out.ok) { showEvents(listKind || kind); return; }
+        if (out.error === 'auth') return;
+        err.textContent = 'That did not delete (' + out.error + '). Try again.';
+      } catch (x) { err.textContent = 'That did not delete. Check your signal and try again.'; }
+      del.disabled = false; armed = false; del.textContent = appt ? 'Delete appointment' : 'Delete event';
+    });
+    main.append(del);
+  }
 }
 
 function renderList() {
@@ -227,7 +365,7 @@ function showGrocery() {
   refresh();
 }
 
-backBtn.addEventListener('click', showHome);
+backBtn.addEventListener('click', () => { if (view === 'form') showEvents(listKind || 'event'); else showHome(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 setInterval(refresh, 30000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

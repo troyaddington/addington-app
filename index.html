@@ -157,8 +157,7 @@ function showHome() {
   main.append(el('div', { className: 'tiles' },
     tile('Grocery list', 'Shared with everyone', showGrocery),
     tile('Calendar', 'Everything coming up', () => showEvents('event')),
-    tile('Appointments', 'Doctors and visits', () => showEvents('appointment')),
-    tile('Reminders', 'Coming next')));
+    tile('Appointments', 'Doctors and visits', () => showEvents('appointment'))));
 }
 
 const pad = n => String(n).padStart(2, '0');

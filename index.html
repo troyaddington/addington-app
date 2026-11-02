@@ -43,6 +43,8 @@
   .gate p { margin:0; color:var(--muted); }
   .note { color:var(--muted); text-align:center; padding:24px 8px; }
   .err { color:var(--danger); min-height:1.4em; font-size:15px; margin:0; }
+  li.pending label { opacity:.6; }
+  .err:empty { display:none; }
   [hidden] { display:none !important; }
 </style>
 </head>
@@ -150,11 +152,11 @@ function renderList() {
     const box = el('input', { type: 'checkbox', checked: it.done, id: 'i' + it.id });
     box.addEventListener('change', () => change('grocery.toggle', it, { done: box.checked }, () => { it.done = box.checked; }));
     const label = el('label', { htmlFor: 'i' + it.id, textContent: it.item });
-    const sub = [it.qty, it.addedBy].filter(Boolean).join(' · ');
+    const sub = it.pending ? 'Saving…' : [it.qty, it.addedBy].filter(Boolean).join(' · ');
     if (sub) label.append(el('small', { textContent: sub }));
     const del = el('button', { textContent: '×', ariaLabel: 'Remove ' + it.item });
     del.addEventListener('click', () => change('grocery.delete', it, {}, () => { items = items.filter(x => x !== it); }));
-    return el('li', { className: it.done ? 'done' : '' }, box, label, del);
+    return el('li', { className: (it.done ? 'done' : '') + (it.pending ? ' pending' : '') }, box, label, del);
   }));
   document.getElementById('empty').hidden = items.length > 0;
   foot.hidden = !items.some(i => i.done);
@@ -165,17 +167,21 @@ async function change(action, it, data, optimistic) {
   renderList();
   try {
     const out = await api(action, Object.assign({ id: it.id }, data));
-    if (out.ok) { items = out.items; renderList(); }
-  } catch (e) { refresh(); }
+    if (out.ok) { items = merge(out.items); renderList(); } else { showErr(saveMsg(out)); refresh(); }
+  } catch (e) { showErr('That change did not save. Check your signal and try again.'); refresh(); }
 }
 
 async function refresh() {
   if (view !== 'grocery' || !token) return;
   try {
     const out = await api('grocery.list');
-    if (out.ok) { items = out.items; renderList(); }
+    if (out.ok) { items = merge(out.items); renderList(); }
   } catch (e) {}
 }
+
+function merge(list) { return list.concat(items.filter(i => i.pending)); }
+function showErr(msg) { const e = document.getElementById('gerr'); if (e) e.textContent = msg; }
+function saveMsg(out) { return 'That did not save (' + (out.error || 'unknown') + '). Try again.'; }
 
 function showGrocery() {
   setView('grocery', 'Grocery list');
@@ -189,12 +195,21 @@ function showGrocery() {
     if (!text) return;
     const payload = { item: text, qty: qty.value.trim(), addedBy: store.get('name') || '' };
     item.value = ''; qty.value = ''; item.focus();
-    items.push({ id: 'new' + Date.now(), item: text, qty: payload.qty, addedBy: payload.addedBy, done: false });
+    const temp = { id: 'new' + Date.now(), item: text, qty: payload.qty, addedBy: payload.addedBy, done: false, pending: true };
+    items.push(temp);
+    showErr('');
     renderList();
+    let failed = '';
     try {
       const out = await api('grocery.add', payload);
-      if (out.ok) { items = out.items; renderList(); }
-    } catch (e) { refresh(); }
+      items = items.filter(i => i !== temp);
+      if (out.ok) items = merge(out.items); else failed = saveMsg(out);
+    } catch (e) {
+      items = items.filter(i => i !== temp);
+      failed = text + ' did not save. Check your signal and add it again.';
+    }
+    if (failed) { showErr(failed); item.value = item.value || text; qty.value = qty.value || payload.qty; }
+    renderList();
   });
   const clear = el('button', { className: 'btn quiet', textContent: 'Clear checked items' });
   clear.addEventListener('click', async () => {
@@ -202,10 +217,10 @@ function showGrocery() {
     renderList();
     try {
       const out = await api('grocery.clearDone');
-      if (out.ok) { items = out.items; renderList(); }
-    } catch (e) { refresh(); }
+      if (out.ok) { items = merge(out.items); renderList(); } else { showErr(saveMsg(out)); refresh(); }
+    } catch (e) { showErr('That change did not save. Check your signal and try again.'); refresh(); }
   });
-  main.append(form, el('ul', { id: 'list' }),
+  main.append(form, el('p', { className: 'err', id: 'gerr', role: 'alert' }), el('ul', { id: 'list' }),
     el('p', { className: 'note', id: 'empty', textContent: 'The list is empty.', hidden: items.length > 0 }),
     el('div', { id: 'foot', hidden: true }, clear));
   renderList();

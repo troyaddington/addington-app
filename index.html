@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Addington App</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#23433b">
+<meta name="theme-color" content="#2c3a26">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Addington">
@@ -13,10 +13,11 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-  :root { --bg:#f6f1e7; --card:#fffdf8; --ink:#1f2a27; --muted:#68746f; --line:#e3dccd; --brand:#23433b; --accent:#c8693f; --danger:#a63d2f; }
+  :root { --bg:#f7ecdd; --card:#fffaf2; --ink:#2a2115; --muted:#6b5a47; --line:#e8d6bf; --brand:#2c3a26; --accent:#b5551b; --danger:#a3281d; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  header { background:var(--brand); color:#fff; padding:calc(14px + env(safe-area-inset-top)) 16px 14px; display:flex; align-items:center; gap:10px; }
+  .gatelogo { width:104px; height:104px; border-radius:24px; justify-self:center; box-shadow:0 6px 18px rgba(42,33,21,.3); }
+  header { background:linear-gradient(100deg, #2c3a26 0%, #4a3a22 58%, #b5551b 100%); color:#fff; padding:calc(14px + env(safe-area-inset-top)) 16px 14px; display:flex; align-items:center; gap:10px; }
   header h1 { font:600 21px/1.2 Georgia, "Times New Roman", serif; margin:0; flex:1; }
   header button { background:none; border:0; color:#fff; font:inherit; padding:6px 0; min-height:44px; cursor:pointer; }
   main { max-width:560px; margin:0 auto; padding:16px 16px calc(32px + env(safe-area-inset-bottom)); }
@@ -129,6 +130,7 @@ async function showGate() {
   const err = el('p', { className: 'err' });
   const btn = el('button', { className: 'btn', type: 'submit', textContent: hasPasscode ? 'Open' : 'Create passcode' });
   const form = el('form', { className: 'gate' },
+    el('img', { className: 'gatelogo', src: 'icon-192.png', alt: 'Addington family' }),
     el('h2', { textContent: hasPasscode ? 'Welcome home' : 'Set up your family app' }),
     el('p', { textContent: hasPasscode ? 'Enter the family passcode.' : 'Pick a passcode of at least 6 characters. Everyone in the family will use it.' }),
     name, pass, err, btn);

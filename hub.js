@@ -29,8 +29,8 @@ const vehName = v => v.nickname || [v.year, v.make, v.model].filter(Boolean).joi
   .pill { display:inline-block; border-radius:999px; padding:2px 10px; font-size:13px; font-weight:600; white-space:nowrap; }
   .pill-overdue { background:var(--danger); color:#fff; }
   .pill-today { background:var(--accent); color:#fff; }
-  .pill-soon { background:#f1dfc4; color:#7a4a12; }
-  .pill-upcoming { background:#dfe9e4; color:var(--brand); }
+  .pill-soon { background:#fbdfb8; color:#7a3f0c; }
+  .pill-upcoming { background:#dde3d3; color:var(--brand); }
   .pill-current { background:var(--bg); color:var(--muted); border:1px solid var(--line); }
   .attn { margin-bottom:16px; }
   .attn h2, .hubsec h2 { font:600 19px/1.2 Georgia, "Times New Roman", serif; color:var(--brand); margin:0 0 8px; }

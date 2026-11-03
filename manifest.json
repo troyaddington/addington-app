@@ -1,6 +1,6 @@
 {
-  "name": "Addington App",
-  "short_name": "Addington",
+  "name": "Addington Hub",
+  "short_name": "Addington Hub",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

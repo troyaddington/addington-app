@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Addington">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192_1.png">
 <style>
   :root { --bg:#f7ecdd; --card:#fffaf2; --ink:#2a2115; --muted:#6b5a47; --line:#e8d6bf; --brand:#2c3a26; --accent:#b5551b; --danger:#a3281d; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -130,7 +130,7 @@ async function showGate() {
   const err = el('p', { className: 'err' });
   const btn = el('button', { className: 'btn', type: 'submit', textContent: hasPasscode ? 'Open' : 'Create passcode' });
   const form = el('form', { className: 'gate' },
-    el('img', { className: 'gatelogo', src: 'icon-192.png', alt: 'Addington family' }),
+    el('img', { className: 'gatelogo', src: 'icon-192_1.png', alt: 'Addington family' }),
     el('h2', { textContent: hasPasscode ? 'Welcome home' : 'Set up your family app' }),
     el('p', { textContent: hasPasscode ? 'Enter the family passcode.' : 'Pick a passcode of at least 6 characters. Everyone in the family will use it.' }),
     name, pass, err, btn);

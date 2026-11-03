@@ -70,6 +70,7 @@
 </header>
 <main id="main"></main>
 
+<script src="hub.js"></script>
 <script>
 // Paste the deployed Apps Script web app URL here.
 const API_URL = 'https://script.google.com/macros/s/AKfycbw5WMXFqKbHFmhxtV2MFHCqTr8zJO94zdutdqH5eBPlKNISalXWB3PEdq12bFh_5U5PXw/exec';
@@ -154,10 +155,13 @@ async function showGate() {
 function showHome() {
   setView('home', 'Addington App');
   const tile = (t, s, fn) => el('button', { className: 'tile', disabled: !fn, onclick: fn || null }, el('b', { textContent: t }), el('span', { textContent: s }));
-  main.append(el('div', { className: 'tiles' },
+  main.append(el('div', { className: 'attn', id: 'attn' }), el('div', { className: 'tiles' },
     tile('Grocery list', 'Shared with everyone', showGrocery),
     tile('Calendar', 'Everything coming up', () => showEvents('event')),
-    tile('Appointments', 'Doctors and visits', () => showEvents('appointment'))));
+    tile('Appointments', 'Doctors and visits', () => showEvents('appointment')),
+    tile('Pets', 'Profiles and vaccinations', petsList),
+    tile('Vehicles', 'Insurance and registration', vehiclesList)));
+  hubHome();
 }
 
 const pad = n => String(n).padStart(2, '0');
@@ -364,7 +368,7 @@ function showGrocery() {
   refresh();
 }
 
-backBtn.addEventListener('click', () => { if (view === 'form') showEvents(listKind || 'event'); else showHome(); });
+backBtn.addEventListener('click', () => { if (view === 'hub' && hubBack) hubBack(); else if (view === 'form') showEvents(listKind || 'event'); else showHome(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 setInterval(refresh, 30000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
